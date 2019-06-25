@@ -216,7 +216,8 @@ func getOkRepoIds(rbd *SearchRequest, gins *GinServer) ([]string, error) {
 
 	// Get repos ids for public repos
 	prepos := struct{ Data []gogs.Repository }{}
-	err := getParsedHttpCall(http.MethodGet, fmt.Sprintf("%s/api/v1/repos/search/?limit=10000", gins.URL),
+	// err := getParsedHttpCall(http.MethodGet, fmt.Sprintf("%s/api/v1/repos/search/?limit=10000", gins.URL),
+	err := getParsedHttpCall(http.MethodGet, fmt.Sprintf("%s/api/v1/repos/search/", gins.URL),
 		nil, rbd.Token, rbd.CsrfT, &prepos)
 	if err != nil {
 		log.Errorf("Could not query public repos: %v", err)
