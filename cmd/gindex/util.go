@@ -193,10 +193,9 @@ func GetNevComments(blobBuf *bufio.Reader) (*string, error) {
 
 func getOkRepoIds(rbd *SearchRequest, gins *GinServer) ([]string, error) {
 	repos := []gogs.Repository{}
+	client := ginclient.New("gin")
+	client.Token = rbd.Token
 	if rbd.UserID > -10 {
-		client := ginclient.New("gin")
-
-		client.Token = rbd.Token
 		res, err := client.Get("/api/v1/user/repos")
 		if err != nil {
 			log.Debugf("Failed to query GIN server: %v", err)
@@ -214,14 +213,23 @@ func getOkRepoIds(rbd *SearchRequest, gins *GinServer) ([]string, error) {
 		}
 	}
 
+	log.Debug("Collecting public repositories")
 	// Get repos ids for public repos
 	prepos := struct{ Data []gogs.Repository }{}
-	// err := getParsedHttpCall(http.MethodGet, fmt.Sprintf("%s/api/v1/repos/search/?limit=10000", gins.URL),
-	err := getParsedHttpCall(http.MethodGet, fmt.Sprintf("%s/api/v1/repos/search/", gins.URL),
-		nil, rbd.Token, rbd.CsrfT, &prepos)
+	res, err := client.Get("/api/v1/repos/search")
 	if err != nil {
-		log.Errorf("Could not query public repos: %v", err)
+		log.Debugf("Failed to query GIN server: %v", err)
+		return nil, err // return error from Get() directly
+	}
+	defer web.CloseRes(res.Body)
+	b, err := ioutil.ReadAll(res.Body)
+	if err != nil {
+		log.Debugf("Failed reading response from GIN server: %v", err)
 		return nil, err
+	}
+	err = json.Unmarshal(b, &prepos)
+	if err != nil {
+		log.Debugf("Failed to unmarshal server response: %v", err)
 	}
 	repos = append(repos, prepos.Data...)
 
