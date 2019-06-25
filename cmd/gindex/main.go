@@ -59,6 +59,7 @@ Options:
 	}
 	srvcfg := clientconfig.ServerCfg{Web: web}
 	clientconfig.AddServerConf("gin", srvcfg)
+	log.Debugf("GIN server configured: %s", srvcfg.Web.AddressStr())
 
 	log.Debug("Registering routes")
 
