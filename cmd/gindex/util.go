@@ -15,6 +15,8 @@ import (
 	"strings"
 
 	"github.com/G-Node/gig"
+	"github.com/G-Node/gin-cli/ginclient"
+	"github.com/G-Node/gin-cli/web"
 	"github.com/G-Node/git-module"
 	"github.com/gogits/go-gogs-client"
 	log "github.com/sirupsen/logrus"
@@ -46,6 +48,7 @@ func getParsedResponse(resp *http.Response, obj interface{}) error {
 }
 
 func getParsedHttpCall(method, path string, body io.Reader, token, csrfT string, obj interface{}) error {
+	// TODO: Use client libraries
 	client := &http.Client{}
 	req, _ := http.NewRequest(method, path, body)
 	req.Header.Set("Cookie", fmt.Sprintf("i_like_gogits=%s; _csrf=%s", token, csrfT))
@@ -99,13 +102,10 @@ func hasRepoAccess(repository *gig.Repository, rbd *ReIndexRequest, gins *GinSer
 	}
 	owner := splPath[len(splPath)-2]
 	name := strings.TrimSuffix(splPath[len(splPath)-1], ".git")
-	gRepo := gogs.Repository{}
-	err := getParsedHttpCall(http.MethodGet, fmt.Sprintf("%s/api/v1/repos/%s/%s",
-		gins.URL, owner, name), nil, rbd.Token, rbd.CsrfT, &gRepo)
-	if err != nil {
-		return nil, err
-	}
-	return &gRepo, nil
+	client := ginclient.New("gin")
+	client.Token = rbd.Token
+	gRepo, err := client.GetRepo(fmt.Sprintf("%s/%s", owner, name))
+	return &gRepo, err
 }
 
 func GetIndexCommitId(id, repoid string) gig.SHA1 {
@@ -194,10 +194,23 @@ func GetNevComments(blobBuf *bufio.Reader) (*string, error) {
 func getOkRepoIds(rbd *SearchRequest, gins *GinServer) ([]string, error) {
 	repos := []gogs.Repository{}
 	if rbd.UserID > -10 {
-		err := getParsedHttpCall(http.MethodGet, fmt.Sprintf("%s/api/v1/user/repos", gins.URL),
-			nil, rbd.Token, rbd.CsrfT, &repos)
+		client := ginclient.New("gin")
+
+		client.Token = rbd.Token
+		res, err := client.Get("/api/v1/user/repos")
 		if err != nil {
-			log.Infof("Could not query user repos: %v", err)
+			log.Debugf("Failed to query GIN server: %v", err)
+			return nil, err // return error from Get() directly
+		}
+		defer web.CloseRes(res.Body)
+		b, err := ioutil.ReadAll(res.Body)
+		if err != nil {
+			log.Debugf("Failed reading response from GIN server: %v", err)
+			return nil, err
+		}
+		err = json.Unmarshal(b, &repos)
+		if err != nil {
+			log.Debugf("Failed to unmarshal server response: %v", err)
 		}
 	}
 
