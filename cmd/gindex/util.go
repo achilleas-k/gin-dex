@@ -216,7 +216,7 @@ func getOkRepoIds(rbd *SearchRequest, gins *GinServer) ([]string, error) {
 	log.Debug("Collecting public repositories")
 	// Get repos ids for public repos
 	prepos := struct{ Data []gogs.Repository }{}
-	res, err := client.Get("/api/v1/repos/search")
+	res, err := client.Get("/api/v1/repos/search?limit=10000")
 	if err != nil {
 		log.Debugf("Failed to query GIN server: %v", err)
 		return nil, err // return error from Get() directly
